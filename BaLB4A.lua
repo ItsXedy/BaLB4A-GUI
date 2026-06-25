@@ -240,6 +240,7 @@ DarkFrame.Parent = DarkOverlayGui
 createToggle("Dark Mode (Hide 3D)", "RenderingDisabled", ContentContainer, function()
     States.RenderingDisabled = not States.RenderingDisabled
     DarkFrame.BackgroundTransparency = States.RenderingDisabled and 0 or 1
+    game:GetService("RunService"):Set3dRenderingEnabled(not States.RenderingDisabled)
 end)
 
 local activeThreads = true
@@ -393,6 +394,7 @@ DestroyBtn.MouseButton1Click:Connect(function()
     States.AutoRebirth = false
     States.BlatantFarm = false
     DarkFrame.BackgroundTransparency = 1
+    game:GetService("RunService"):Set3dRenderingEnabled(true)
     ScreenGui:Destroy()
     DarkOverlayGui:Destroy()
 end)
