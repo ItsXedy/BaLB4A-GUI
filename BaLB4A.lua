@@ -23,8 +23,8 @@ local TargetPaths = {
     ShowNotification = game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("ShowNotification")
 }
 
-local START_POS = Vector3.new(0, 3, 46)
-local END_POS = Vector3.new(0, 3, 6)
+local START_POS = Vector3.new(0, 8, 46)
+local END_POS = Vector3.new(0, 8, 6)
 
 -- Immediate Popup & Notification Nullification
 local function disableOnClientEvent(remote)
@@ -54,14 +54,27 @@ nullifyController("PopUpController")
 nullifyController("NotificationController")
 
 -- Network Intercept for Eggs
+local SettingsButton = LocalPlayer.PlayerGui:WaitForChild("TopbarStandard"):WaitForChild("Holders"):WaitForChild("Right"):WaitForChild("Widget"):WaitForChild("IconButton"):WaitForChild("Menu"):WaitForChild("IconSpot"):WaitForChild("ClickRegion")
+
+local function clickSettingsTwice()
+    pcall(function()
+        for _ = 1, 2 do
+            for _, conn in ipairs(getconnections(SettingsButton.MouseButton1Click)) do conn:Fire() end
+            task.wait(0.1)
+        end
+    end)
+end
+
 for _, Connection in ipairs(getconnections(TargetPaths.ConfirmHatchEvent.OnClientEvent)) do
     local old; old = hookfunction(Connection.Function, function(...)
         States.HatchTriggered = true
+        clickSettingsTwice()
         return old(...)
     end)
 end
 TargetPaths.ConfirmHatchEvent.OnClientEvent:Connect(function()
     States.HatchTriggered = true
+    clickSettingsTwice()
 end)
 
 -- UI Architecture
@@ -347,27 +360,44 @@ end)
 task.spawn(function()
     while activeThreads do
         task.wait(0.2)
+        if not States.BlatantFarm then continue end
+
         local character = LocalPlayer.Character
         local rootPart = character and character:FindFirstChild("HumanoidRootPart")
         local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-        
-        if States.BlatantFarm and rootPart and humanoid then
-            States.HatchTriggered = false
-            rootPart.CFrame = CFrame.new(START_POS)
-            task.wait(0.2)
-            orientCameraToTarget()
-            
-            while States.BlatantFarm and not States.HatchTriggered do
-                humanoid:Move(Vector3.new(0, 0, 1), true)
-                RunService.Heartbeat:Wait()
-            end
-            
-            humanoid:Move(Vector3.new(0, 0, 0), true)
-            
-            if States.BlatantFarm and States.HatchTriggered then
-                rootPart.CFrame = CFrame.new(END_POS)
-                task.wait(6.0)
-            end
+
+        if not (rootPart and humanoid) then continue end
+        if humanoid.Health <= 0 then continue end
+
+        -- Watch for death mid-loop
+        local died = false
+        local deathConn = humanoid.Died:Connect(function()
+            died = true
+        end)
+
+        States.HatchTriggered = false
+        rootPart.CFrame = CFrame.new(START_POS)
+        task.wait(0.2)
+        orientCameraToTarget()
+
+        while States.BlatantFarm and not States.HatchTriggered and not died do
+            humanoid:Move(Vector3.new(0, 0, 1), true)
+            RunService.Heartbeat:Wait()
+        end
+
+        humanoid:Move(Vector3.new(0, 0, 0), true)
+        deathConn:Disconnect()
+
+        if died then
+            -- Wait for respawn then restart
+            LocalPlayer.CharacterAdded:Wait()
+            task.wait(1.5)
+            continue
+        end
+
+        if States.BlatantFarm and States.HatchTriggered then
+            rootPart.CFrame = CFrame.new(END_POS)
+            task.wait(6.0)
         end
     end
 end)
